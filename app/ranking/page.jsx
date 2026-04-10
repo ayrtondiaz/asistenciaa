@@ -11,6 +11,7 @@ export default function RankingPage() {
 
   const ranking = calculateRanking(students, attendance, grades, subject);
   const totalDays = getClassDaysUpToToday();
+  const dangerStart = Math.max(0, ranking.length - 15);
 
   function attColor(pct) {
     if (pct >= 80) return "text-[var(--color-success)]";
@@ -46,13 +47,23 @@ export default function RankingPage() {
             </tr>
           </thead>
           <tbody>
-            {ranking.map((r, i) => (
+            {ranking.map((r, i) => {
+              const isTop3 = i < 3;
+              const isDanger = ranking.length > 15 && i >= dangerStart;
+              let rowClass = "border-t border-[var(--color-border)] ";
+              if (isDanger) rowClass += "bg-red-500/10";
+              else if (isTop3) rowClass += "bg-[var(--color-success)]/5";
+              else if (i % 2 === 0) rowClass += "bg-[var(--color-card)]";
+
+              return (
               <tr
                 key={r.dni}
-                className={`border-t border-[var(--color-border)] ${i < 3 ? "bg-[var(--color-success)]/5" : i % 2 === 0 ? "bg-[var(--color-card)]" : ""}`}
+                className={rowClass}
               >
-                <td className="px-3 py-2 font-mono font-medium">{i + 1}</td>
-                <td className="px-3 py-2 font-medium">{r.name}</td>
+                <td className={`px-3 py-2 font-mono font-medium ${isDanger ? "text-red-500" : ""}`}>
+                  {isDanger && <span className="mr-1">⚠</span>}{i + 1}
+                </td>
+                <td className={`px-3 py-2 font-medium ${isDanger ? "text-red-500" : ""}`}>{r.name}</td>
                 <td className={`px-3 py-2 text-center font-mono ${attColor(r.attPct)}`}>
                   {r.attended}
                 </td>
@@ -62,10 +73,17 @@ export default function RankingPage() {
                 <td className="px-3 py-2 text-center font-mono">{r.projAvg.toFixed(1)}</td>
                 <td className="px-3 py-2 text-center font-mono font-bold">{r.score.toFixed(2)}</td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>
+
+      {ranking.length > 15 && (
+        <p className="mt-3 text-xs text-red-500 font-medium">
+          Los ultimos 15 alumnos estan en riesgo de quedar libres
+        </p>
+      )}
 
       {/* Weights legend */}
       <div className="mt-4 flex flex-wrap gap-3 text-xs text-[var(--color-muted)]">
