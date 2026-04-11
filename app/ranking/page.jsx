@@ -11,7 +11,8 @@ export default function RankingPage() {
 
   const ranking = calculateRanking(students, attendance, grades, subject);
   const totalDays = getClassDaysUpToToday();
-  const dangerStart = Math.max(0, ranking.length - 15);
+  const dangerStart = Math.max(0, ranking.length - 10);
+  const warningStart = Math.max(0, ranking.length - 13);
 
   function attColor(pct) {
     if (pct >= 80) return "text-[var(--color-success)]";
@@ -49,9 +50,11 @@ export default function RankingPage() {
           <tbody>
             {ranking.map((r, i) => {
               const isTop3 = i < 3;
-              const isDanger = ranking.length > 15 && i >= dangerStart;
+              const isDanger = ranking.length > 10 && i >= dangerStart;
+              const isWarning = !isDanger && ranking.length > 13 && i >= warningStart;
               let rowClass = "border-t border-[var(--color-border)] ";
               if (isDanger) rowClass += "bg-red-500/10";
+              else if (isWarning) rowClass += "bg-yellow-500/10";
               else if (isTop3) rowClass += "bg-[var(--color-success)]/5";
               else if (i % 2 === 0) rowClass += "bg-[var(--color-card)]";
 
@@ -60,10 +63,10 @@ export default function RankingPage() {
                 key={r.dni}
                 className={rowClass}
               >
-                <td className={`px-3 py-2 font-mono font-medium ${isDanger ? "text-red-500" : ""}`}>
+                <td className={`px-3 py-2 font-mono font-medium ${isDanger ? "text-red-500" : isWarning ? "text-yellow-500" : ""}`}>
                   {isDanger && <span className="mr-1">⚠</span>}{i + 1}
                 </td>
-                <td className={`px-3 py-2 font-medium ${isDanger ? "text-red-500" : ""}`}>{r.name}</td>
+                <td className={`px-3 py-2 font-medium ${isDanger ? "text-red-500" : isWarning ? "text-yellow-500" : ""}`}>{r.name}</td>
                 <td className={`px-3 py-2 text-center font-mono ${attColor(r.attPct)}`}>
                   {r.attended}
                 </td>
@@ -79,10 +82,11 @@ export default function RankingPage() {
         </table>
       </div>
 
-      {ranking.length > 15 && (
-        <p className="mt-3 text-xs text-red-500 font-medium">
-          Los ultimos 15 alumnos estan en riesgo de quedar libres
-        </p>
+      {ranking.length > 13 && (
+        <div className="mt-3 flex flex-wrap gap-3 text-xs font-medium">
+          <span className="text-yellow-500">Amarillo: alerta (puestos {ranking.length - 12} a {ranking.length - 10})</span>
+          <span className="text-red-500">Rojo: en riesgo de quedar libres (ultimos 10)</span>
+        </div>
       )}
 
       {/* Weights legend */}

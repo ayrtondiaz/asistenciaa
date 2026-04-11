@@ -45,7 +45,8 @@ export default function AttendanceTab() {
           const sortedDnis = [...dnis].sort(
             (a, b) => getRankPosition(a) - getRankPosition(b)
           );
-          const dangerStart = Math.max(0, ranking.length - 15);
+          const dangerStart = Math.max(0, ranking.length - 10);
+          const warningStart = Math.max(0, ranking.length - 13);
 
           return (
             <div
@@ -77,15 +78,15 @@ export default function AttendanceTab() {
                   <div className="space-y-1">
                     {sortedDnis.map((dni) => {
                       const rankPos = getRankPosition(dni);
-                      const isDanger = ranking.length > 15 && rankPos > dangerStart;
+                      const isDanger = ranking.length > 10 && rankPos > dangerStart;
+                      const isWarning = !isDanger && ranking.length > 13 && rankPos > warningStart;
+                      let colorClass = "bg-[var(--color-success)]/10 text-[var(--color-success)]";
+                      if (isDanger) colorClass = "bg-red-500/10 text-red-500";
+                      else if (isWarning) colorClass = "bg-yellow-500/10 text-yellow-500";
                       return (
                         <div
                           key={dni}
-                          className={`flex items-center justify-between px-2 py-1.5 rounded-md text-sm ${
-                            isDanger
-                              ? "bg-red-500/10 text-red-500"
-                              : "bg-[var(--color-success)]/10 text-[var(--color-success)]"
-                          }`}
+                          className={`flex items-center justify-between px-2 py-1.5 rounded-md text-sm ${colorClass}`}
                         >
                           <span className="font-medium">{getStudentName(dni)}</span>
                           <span className="text-xs font-mono opacity-70">#{rankPos}</span>
@@ -105,15 +106,15 @@ export default function AttendanceTab() {
                           .filter((r) => !dnis.includes(r.dni))
                           .map((r) => {
                             const rankPos = getRankPosition(r.dni);
-                            const isDanger = ranking.length > 15 && rankPos > dangerStart;
+                            const isDanger = ranking.length > 10 && rankPos > dangerStart;
+                            const isWarning = !isDanger && ranking.length > 13 && rankPos > warningStart;
+                            let absentClass = "bg-[var(--color-border)]/30 text-[var(--color-muted)]";
+                            if (isDanger) absentClass = "bg-red-500/5 text-red-400";
+                            else if (isWarning) absentClass = "bg-yellow-500/5 text-yellow-400";
                             return (
                               <div
                                 key={r.dni}
-                                className={`flex items-center justify-between px-2 py-1.5 rounded-md text-sm ${
-                                  isDanger
-                                    ? "bg-red-500/5 text-red-400"
-                                    : "bg-[var(--color-border)]/30 text-[var(--color-muted)]"
-                                }`}
+                                className={`flex items-center justify-between px-2 py-1.5 rounded-md text-sm ${absentClass}`}
                               >
                                 <span>{r.name}</span>
                                 <span className="text-xs font-mono opacity-70">#{rankPos}</span>
