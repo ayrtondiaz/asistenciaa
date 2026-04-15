@@ -36,6 +36,7 @@ function doGet(e) {
       case "addStudent":     result = addStudent(data); break;
       case "removeStudent":  result = removeStudent(data); break;
       case "addAttendance":  result = addAttendance(data); break;
+      case "removeAttendance": result = removeAttendance(data); break;
       case "setGrade":       result = setGrade(data); break;
       case "setCodes":       result = setCodes(data); break;
 
@@ -242,6 +243,34 @@ function addAttendance(data) {
     var newRow = sheet.getLastRow() + 1;
     sheet.getRange(newRow, 1, 1, 3).setValues([[data.subject, data.date, String(data.dni)]]);
   }
+  return { ok: true };
+}
+
+/** Quita UN dni de una fecha. data = { subject, date, dni } */
+function removeAttendance(data) {
+  if (!data || !data.subject || !data.date || !data.dni) {
+    return { ok: false, error: "Faltan campos: subject, date, dni" };
+  }
+  var sheet = getOrCreateSheet("attendance", ["subject", "date", "dnis"]);
+  var row = findRow2(sheet, 1, data.subject, 2, data.date);
+  if (row === -1) {
+    return { ok: false, error: "Fecha no encontrada" };
+  }
+  var current = String(sheet.getRange(row, 3).getValue() || "");
+  var list = current ? current.split(",") : [];
+  var dni = String(data.dni);
+  var next = [];
+  var found = false;
+  for (var i = 0; i < list.length; i++) {
+    var v = list[i].trim();
+    if (!v) continue;
+    if (v === dni) { found = true; continue; }
+    next.push(v);
+  }
+  if (!found) {
+    return { ok: false, error: "DNI no registrado en esta fecha" };
+  }
+  sheet.getRange(row, 3).setValue(next.join(","));
   return { ok: true };
 }
 

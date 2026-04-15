@@ -85,11 +85,26 @@ export function AppProvider({ children }) {
       const next = { ...prev };
       if (!next[subj]) next[subj] = {};
       const existing = next[subj][date] || "";
-      next[subj][date] = existing ? existing + "," + dni : dni;
+      const list = existing ? existing.split(",").filter(Boolean) : [];
+      if (!list.includes(String(dni))) list.push(String(dni));
+      next[subj][date] = list.join(",");
       saveLocal("attendance", next);
       return next;
     });
     await sheetsCall("addAttendance", { subject: subj, date, dni });
+  }, []);
+
+  /** Quita un DNI de una fecha y materia */
+  const removeAttendance = useCallback(async (subj, date, dni) => {
+    setAttendance((prev) => {
+      const next = { ...prev };
+      if (!next[subj] || next[subj][date] == null) return prev;
+      const list = String(next[subj][date]).split(",").filter(Boolean).filter((d) => d !== String(dni));
+      next[subj] = { ...next[subj], [date]: list.join(",") };
+      saveLocal("attendance", next);
+      return next;
+    });
+    await sheetsCall("removeAttendance", { subject: subj, date, dni });
   }, []);
 
   /** Guarda una nota individual */
@@ -148,6 +163,7 @@ export function AppProvider({ children }) {
         addStudent,
         removeStudent,
         addAttendance,
+        removeAttendance,
         setGrade,
         // bulk (compatibility)
         persistStudents,

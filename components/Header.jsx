@@ -11,6 +11,7 @@ const SUBJECTS = [
 
 const NAV_ITEMS = [
   { href: "/", label: "Inicio" },
+  { href: "/ruleta", label: "Ruleta" },
   { href: "/registro", label: "Registro" },
   { href: "/asistencia", label: "Asistencia" },
   { href: "/ranking", label: "Ranking" },

@@ -9,7 +9,7 @@ export default function ParticipationTab() {
 
   async function updateParticipation(dni, delta) {
     const current = Number(subGrades[dni]?.Participacion || 0);
-    const next = Math.max(0, Math.min(10, current + delta));
+    const next = Math.max(0, current + delta);
     if (next === current) return;
 
     await setGrade(subject, dni, "Participacion", next);
