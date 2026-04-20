@@ -9,7 +9,7 @@ const SUBJECTS = [
   { key: "programacion", label: "Programacion" },
 ];
 
-const NAV_ITEMS = [
+export const NAV_ITEMS = [
   { href: "/", label: "Inicio" },
   { href: "/registro", label: "Registro" },
   { href: "/asistencia", label: "Asistencia" },
@@ -17,9 +17,16 @@ const NAV_ITEMS = [
   { href: "/admin", label: "Admin" },
 ];
 
+// Items que no pueden ocultarse (siempre accesibles)
+const ALWAYS_VISIBLE = new Set(["/admin"]);
+
 export default function Header() {
   const pathname = usePathname();
-  const { subject, setSubject } = useApp();
+  const { subject, setSubject, navVisibility } = useApp();
+
+  const visibleItems = NAV_ITEMS.filter(
+    (item) => ALWAYS_VISIBLE.has(item.href) || navVisibility[item.href] !== false
+  );
 
   return (
     <header className="sticky top-0 z-50 bg-[var(--color-bg)] border-b border-[var(--color-border)]">
@@ -46,7 +53,7 @@ export default function Header() {
 
         {/* Navigation */}
         <nav className="flex gap-1 overflow-x-auto">
-          {NAV_ITEMS.map((item) => {
+          {visibleItems.map((item) => {
             const isActive = pathname === item.href;
             return (
               <Link

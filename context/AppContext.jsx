@@ -3,6 +3,32 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
 import { sheetsCall } from "@/lib/api";
 import { loadLocal, saveLocal } from "@/lib/storage";
+import { normalizeDate } from "@/lib/utils";
+
+/** Normaliza las keys de fecha del objeto attendance a YYYY-MM-DD */
+function normalizeAttendance(att) {
+  if (!att || typeof att !== "object") return {};
+  const out = {};
+  for (const subj of Object.keys(att)) {
+    out[subj] = {};
+    const bySubj = att[subj] || {};
+    for (const rawDate of Object.keys(bySubj)) {
+      const norm = normalizeDate(rawDate) || rawDate;
+      const incoming = bySubj[rawDate];
+      const existing = out[subj][norm];
+      if (existing) {
+        // merge CSV sin duplicados si dos keys colapsan a la misma fecha
+        const set = new Set(
+          (existing + "," + incoming).split(",").map((v) => v.trim()).filter(Boolean)
+        );
+        out[subj][norm] = Array.from(set).join(",");
+      } else {
+        out[subj][norm] = incoming;
+      }
+    }
+  }
+  return out;
+}
 
 const AppContext = createContext(null);
 
@@ -14,7 +40,19 @@ export function AppProvider({ children }) {
   const [codes, setCodes] = useState({});
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
+  const [navVisibility, setNavVisibilityState] = useState({});
   const toastTimer = useRef(null);
+
+  // Load nav visibility preferences from localStorage
+  useEffect(() => {
+    const saved = loadLocal("navVisibility");
+    if (saved && typeof saved === "object") setNavVisibilityState(saved);
+  }, []);
+
+  const setNavVisibility = useCallback((next) => {
+    setNavVisibilityState(next);
+    saveLocal("navVisibility", next);
+  }, []);
 
   const showToast = useCallback((message, type = "info") => {
     clearTimeout(toastTimer.current);
@@ -34,7 +72,7 @@ export function AppProvider({ children }) {
           sheetsCall("getCodes"),
         ]);
         const s = Array.isArray(remoteStudents) ? remoteStudents : [];
-        const a = remoteAtt && typeof remoteAtt === "object" ? remoteAtt : {};
+        const a = normalizeAttendance(remoteAtt);
         const g = remoteGrades && typeof remoteGrades === "object" ? remoteGrades : {};
         const c = remoteCodes && typeof remoteCodes === "object" ? remoteCodes : {};
 
@@ -48,7 +86,7 @@ export function AppProvider({ children }) {
         saveLocal("codes", c);
       } catch {
         setStudents(loadLocal("students") || []);
-        setAttendance(loadLocal("attendance") || {});
+        setAttendance(normalizeAttendance(loadLocal("attendance") || {}));
         setGrades(loadLocal("grades") || {});
         setCodes(loadLocal("codes") || {});
       }
@@ -85,11 +123,26 @@ export function AppProvider({ children }) {
       const next = { ...prev };
       if (!next[subj]) next[subj] = {};
       const existing = next[subj][date] || "";
-      next[subj][date] = existing ? existing + "," + dni : dni;
+      const list = existing ? existing.split(",").filter(Boolean) : [];
+      if (!list.includes(String(dni))) list.push(String(dni));
+      next[subj][date] = list.join(",");
       saveLocal("attendance", next);
       return next;
     });
     await sheetsCall("addAttendance", { subject: subj, date, dni });
+  }, []);
+
+  /** Quita un DNI de una fecha y materia */
+  const removeAttendance = useCallback(async (subj, date, dni) => {
+    setAttendance((prev) => {
+      const next = { ...prev };
+      if (!next[subj] || next[subj][date] == null) return prev;
+      const list = String(next[subj][date]).split(",").filter(Boolean).filter((d) => d !== String(dni));
+      next[subj] = { ...next[subj], [date]: list.join(",") };
+      saveLocal("attendance", next);
+      return next;
+    });
+    await sheetsCall("removeAttendance", { subject: subj, date, dni });
   }, []);
 
   /** Guarda una nota individual */
@@ -144,10 +197,13 @@ export function AppProvider({ children }) {
         loading,
         toast,
         showToast,
+        navVisibility,
+        setNavVisibility,
         // granular (preferred)
         addStudent,
         removeStudent,
         addAttendance,
+        removeAttendance,
         setGrade,
         // bulk (compatibility)
         persistStudents,
