@@ -104,6 +104,42 @@ function findRow3(sheet, col1, v1, col2, v2, col3, v3) {
   return -1;
 }
 
+/**
+ * Convierte un valor de celda (Date o string) a "yyyy-MM-dd" usando la
+ * timezone del spreadsheet. Evita que diferencias entre la zona horaria del
+ * spreadsheet y la del runtime del script desplacen el día al leer/escribir.
+ */
+function dateToYMD(v) {
+  if (v === null || v === undefined || v === "") return "";
+  if (Object.prototype.toString.call(v) === "[object Date]") {
+    var tz = SpreadsheetApp.getActiveSpreadsheet().getSpreadsheetTimeZone();
+    return Utilities.formatDate(v, tz, "yyyy-MM-dd");
+  }
+  var s = String(v).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  var m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (m) {
+    return m[3] + "-" + ("0" + m[2]).slice(-2) + "-" + ("0" + m[1]).slice(-2);
+  }
+  var parsed = new Date(s);
+  if (!isNaN(parsed.getTime())) {
+    var tz2 = SpreadsheetApp.getActiveSpreadsheet().getSpreadsheetTimeZone();
+    return Utilities.formatDate(parsed, tz2, "yyyy-MM-dd");
+  }
+  return s;
+}
+
+/** Busca la fila de attendance por subject+date, normalizando la fecha de la celda. */
+function findAttendanceRow(sheet, subject, dateYMD) {
+  var data = sheet.getDataRange().getValues();
+  var sSubj = String(subject);
+  var sYMD = String(dateYMD);
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === sSubj && dateToYMD(data[i][1]) === sYMD) return i + 1;
+  }
+  return -1;
+}
+
 // ===================== STUDENTS =====================
 
 function getStudents() {
@@ -210,7 +246,7 @@ function getAttendance() {
   for (var i = 1; i < data.length; i++) {
     if (data[i][0]) {
       var subj = String(data[i][0]);
-      var date = String(data[i][1]);
+      var date = dateToYMD(data[i][1]);
       var dnis = data[i][2] ? String(data[i][2]) : "";
       if (!attendance[subj]) attendance[subj] = {};
       // Merge: soporta multiples filas con el mismo subject+date
@@ -227,7 +263,8 @@ function addAttendance(data) {
     return { ok: false, error: "Faltan campos: subject, date, dni" };
   }
   var sheet = getOrCreateSheet("attendance", ["subject", "date", "dnis"]);
-  var row = findRow2(sheet, 1, data.subject, 2, data.date);
+  var ymd = dateToYMD(data.date);
+  var row = findAttendanceRow(sheet, data.subject, ymd);
 
   if (row !== -1) {
     // La fila ya existe, agregar DNI si no esta
@@ -239,9 +276,11 @@ function addAttendance(data) {
     list.push(String(data.dni));
     sheet.getRange(row, 3).setValue(list.join(","));
   } else {
-    // Crear nueva fila
+    // Crear nueva fila — forzar la columna de fecha como texto para evitar
+    // que Sheets la parsee como Date y la convierta segun su timezone.
     var newRow = sheet.getLastRow() + 1;
-    sheet.getRange(newRow, 1, 1, 3).setValues([[data.subject, data.date, String(data.dni)]]);
+    sheet.getRange(newRow, 2).setNumberFormat("@");
+    sheet.getRange(newRow, 1, 1, 3).setValues([[data.subject, ymd, String(data.dni)]]);
   }
   return { ok: true };
 }
@@ -252,7 +291,8 @@ function removeAttendance(data) {
     return { ok: false, error: "Faltan campos: subject, date, dni" };
   }
   var sheet = getOrCreateSheet("attendance", ["subject", "date", "dnis"]);
-  var row = findRow2(sheet, 1, data.subject, 2, data.date);
+  var ymd = dateToYMD(data.date);
+  var row = findAttendanceRow(sheet, data.subject, ymd);
   if (row === -1) {
     return { ok: false, error: "Fecha no encontrada" };
   }
@@ -287,10 +327,11 @@ function saveAttendanceBulk(attendance) {
     var dates = Object.keys(attendance[subj]);
     for (var j = 0; j < dates.length; j++) {
       var date = dates[j];
+      var ymd = dateToYMD(date);
       var dnis = attendance[subj][date];
       // Normalizar: puede venir como array o string
       var dnisStr = Array.isArray(dnis) ? dnis.join(",") : String(dnis);
-      var row = findRow2(sheet, 1, subj, 2, date);
+      var row = findAttendanceRow(sheet, subj, ymd);
 
       if (row !== -1) {
         // Merge: agregar DNIs nuevos a los existentes
@@ -299,7 +340,8 @@ function saveAttendanceBulk(attendance) {
         sheet.getRange(row, 3).setValue(merged);
       } else {
         var newRow = sheet.getLastRow() + 1;
-        sheet.getRange(newRow, 1, 1, 3).setValues([[subj, date, dnisStr]]);
+        sheet.getRange(newRow, 2).setNumberFormat("@");
+        sheet.getRange(newRow, 1, 1, 3).setValues([[subj, ymd, dnisStr]]);
       }
     }
   }
