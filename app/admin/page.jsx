@@ -9,6 +9,8 @@ import ParticipationTab from "./ParticipationTab";
 import GradesTab from "./GradesTab";
 import StudentsTab from "./StudentsTab";
 import AttendanceTab from "./AttendanceTab";
+import RuletaTab from "./RuletaTab";
+import NavConfigTab from "./NavConfigTab";
 
 const TABS = [
   { key: "codes", label: "Codigos" },
@@ -16,6 +18,8 @@ const TABS = [
   { key: "grades", label: "Notas" },
   { key: "students", label: "Alumnos" },
   { key: "attendance", label: "Asistencia" },
+  { key: "ruleta", label: "Ruleta" },
+  { key: "nav", label: "Menu" },
 ];
 
 export default function AdminPage() {
@@ -80,6 +84,8 @@ export default function AdminPage() {
       {tab === "grades" && <GradesTab />}
       {tab === "students" && <StudentsTab />}
       {tab === "attendance" && <AttendanceTab />}
+      {tab === "ruleta" && <RuletaTab />}
+      {tab === "nav" && <NavConfigTab />}
     </div>
   );
 }

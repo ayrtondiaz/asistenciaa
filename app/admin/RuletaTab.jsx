@@ -3,15 +3,15 @@
 import { useState, useRef, useEffect } from "react";
 import { useApp } from "@/context/AppContext";
 import { todayStr, normalizeDate, calculateRanking } from "@/lib/utils";
-import Spinner from "@/components/Spinner";
 
-export default function RuletaPage() {
-  const { students, attendance, grades, subject, loading } = useApp();
+export default function RuletaTab() {
+  const { students, attendance, grades, subject, setGrade, showToast } = useApp();
   const [algorithm, setAlgorithm] = useState("uniform");
   const [spinning, setSpinning] = useState(false);
   const [displayName, setDisplayName] = useState(null);
   const [winner, setWinner] = useState(null);
   const [history, setHistory] = useState([]);
+  const [adjusted, setAdjusted] = useState(new Map()); // dni -> "plus" | "minus"
   const intervalRef = useRef(null);
 
   useEffect(() => {
@@ -20,26 +20,21 @@ export default function RuletaPage() {
     };
   }, []);
 
-  if (loading) return <Spinner />;
-
   const today = todayStr();
   const subAtt = attendance[subject] || {};
   const presentDnis = (subAtt[today] || "").split(",").filter(Boolean);
   const presentStudents = students.filter((s) => presentDnis.includes(s.dni));
 
-  // Modo prueba: si no hay alumnos presentes hoy, usar la ultima clase registrada
   const isPreview = presentStudents.length === 0;
 
   let sourceStudents = presentStudents;
-  let previewDate = null;
   if (isPreview) {
     const dates = Object.keys(subAtt)
       .map((d) => ({ raw: d, norm: normalizeDate(d) || "" }))
       .filter((d) => d.norm && d.norm !== today)
       .sort((a, b) => b.norm.localeCompare(a.norm));
     if (dates.length > 0) {
-      previewDate = dates[0].raw;
-      const lastDnis = (subAtt[previewDate] || "").split(",").filter(Boolean);
+      const lastDnis = (subAtt[dates[0].raw] || "").split(",").filter(Boolean);
       sourceStudents = students.filter((s) => lastDnis.includes(s.dni));
     }
   }
@@ -47,15 +42,16 @@ export default function RuletaPage() {
   const ranking = calculateRanking(students, attendance, grades, subject);
   const rankIndex = new Map(ranking.map((r, i) => [r.dni, i]));
 
-  // Excluir los ya sacados en esta sesion
   const excluded = new Set(history.map((h) => h.dni));
   const pool = sourceStudents.filter((s) => !excluded.has(s.dni));
 
   function weightFor(dni) {
     if (algorithm === "uniform") return 1;
+    // ranking esta ordenado de mejor (idx 0) a peor (idx N-1).
+    // Los peores deben tener mayor probabilidad => peso = idx + 1.
     const idx = rankIndex.get(dni);
     if (idx == null) return 1;
-    return ranking.length - idx;
+    return idx + 1;
   }
 
   function pickWeighted(list) {
@@ -102,12 +98,38 @@ export default function RuletaPage() {
     setHistory([]);
     setWinner(null);
     setDisplayName(null);
+    setAdjusted(new Map());
+  }
+
+  async function adjustParticipation(dni, delta) {
+    if (isPreview) return;
+    if (adjusted.has(dni)) return;
+    const subGrades = grades[subject] || {};
+    const current = Number(subGrades[dni]?.Participacion || 0);
+    const next = Math.max(0, current + delta);
+    if (next === current) {
+      showToast("No se puede bajar de 0", "error");
+      return;
+    }
+    try {
+      await setGrade(subject, dni, "Participacion", next);
+      setAdjusted((prev) => {
+        const m = new Map(prev);
+        m.set(dni, delta > 0 ? "plus" : "minus");
+        return m;
+      });
+      showToast(
+        `${delta > 0 ? "+" : ""}${delta} participación (total: ${next})`,
+        delta > 0 ? "success" : "info"
+      );
+    } catch {
+      showToast("Error al actualizar participación", "error");
+    }
   }
 
   const totalWeight = pool.reduce((a, s) => a + weightFor(s.dni), 0);
   const hasSource = sourceStudents.length > 0;
 
-  // Paletas segun modo
   const tone = {
     accentBg: isPreview ? "bg-[var(--color-muted)]" : "bg-[var(--color-accent)]",
     accentText: isPreview ? "text-[var(--color-muted)]" : "text-[var(--color-accent)]",
@@ -115,13 +137,9 @@ export default function RuletaPage() {
   };
 
   return (
-    <div className="animate-fade-in">
-      <h2 className="font-serif text-2xl mb-1">Ruleta</h2>
-      <p className="text-sm text-[var(--color-muted)] mb-4">
-        Elegir un alumno entre los presentes hoy
-      </p>
+    <div>
+      <h3 className="font-medium text-sm mb-3">Ruleta</h3>
 
-      {/* Banner modo prueba */}
       {isPreview && (
         <div className="mb-4 px-3 py-2 rounded-lg bg-[var(--color-border)]/40 border border-[var(--color-border)] text-xs text-[var(--color-muted)]">
           {hasSource ? (
@@ -144,7 +162,6 @@ export default function RuletaPage() {
         </div>
       ) : (
         <div className={`transition-all ${tone.container}`}>
-          {/* Algoritmo */}
           <div className="mb-4">
             <p className="text-xs text-[var(--color-muted)] mb-2">Algoritmo</p>
             <div className="flex gap-2 flex-wrap">
@@ -173,7 +190,6 @@ export default function RuletaPage() {
             </div>
           </div>
 
-          {/* Display */}
           <div className="bg-[var(--color-card)] border border-[var(--color-border)] rounded-xl p-8 text-center mb-4">
             <p className="text-xs text-[var(--color-muted)] mb-2">
               {pool.length} disponible{pool.length !== 1 ? "s" : ""} de {sourceStudents.length}{" "}
@@ -193,13 +209,36 @@ export default function RuletaPage() {
               </p>
             </div>
             {winner && !spinning && (
-              <p className="text-xs text-[var(--color-muted)] font-mono mt-2">
-                DNI {winner.dni}
-              </p>
+              <>
+                <p className="text-xs text-[var(--color-muted)] font-mono mt-2">
+                  DNI {winner.dni}
+                </p>
+                {!isPreview && (() => {
+                  const status = adjusted.get(winner.dni);
+                  const done = !!status;
+                  return (
+                    <div className="mt-3 flex gap-2 justify-center">
+                      <button
+                        onClick={() => adjustParticipation(winner.dni, -1)}
+                        disabled={done}
+                        className="px-3 py-1.5 text-xs font-medium rounded-md bg-[var(--color-error)]/20 text-[var(--color-error)] hover:bg-[var(--color-error)]/40 transition-colors disabled:opacity-50 cursor-pointer"
+                      >
+                        {status === "minus" ? "✓ -1 aplicado" : "-1 participación"}
+                      </button>
+                      <button
+                        onClick={() => adjustParticipation(winner.dni, 1)}
+                        disabled={done}
+                        className="px-3 py-1.5 text-xs font-medium rounded-md bg-[var(--color-success)]/20 text-[var(--color-success)] hover:bg-[var(--color-success)]/40 transition-colors disabled:opacity-50 cursor-pointer"
+                      >
+                        {status === "plus" ? "✓ +1 aplicado" : "+1 participación"}
+                      </button>
+                    </div>
+                  );
+                })()}
+              </>
             )}
           </div>
 
-          {/* Controls */}
           <div className="flex gap-2 mb-6">
             <button
               onClick={spin}
@@ -219,26 +258,37 @@ export default function RuletaPage() {
             )}
           </div>
 
-          {/* Historial */}
           {history.length > 0 && (
             <div className="mb-6">
               <p className="text-xs text-[var(--color-muted)] mb-2">
                 Ya sacados ({history.length})
               </p>
               <div className="flex flex-wrap gap-1.5">
-                {history.map((h, i) => (
-                  <span
-                    key={`${h.dni}-${i}`}
-                    className="text-xs px-2 py-1 rounded-md bg-[var(--color-border)]/40 font-medium"
-                  >
-                    {i + 1}. {h.name}
-                  </span>
-                ))}
+                {history.map((h, i) => {
+                  const status = adjusted.get(h.dni);
+                  let cls = "bg-[var(--color-border)]/40";
+                  let suffix = "";
+                  if (status === "plus") {
+                    cls = "bg-[var(--color-success)]/20 text-[var(--color-success)]";
+                    suffix = " +1";
+                  } else if (status === "minus") {
+                    cls = "bg-[var(--color-error)]/20 text-[var(--color-error)]";
+                    suffix = " -1";
+                  }
+                  return (
+                    <span
+                      key={`${h.dni}-${i}`}
+                      className={`text-xs px-2 py-1 rounded-md font-medium ${cls}`}
+                    >
+                      {i + 1}. {h.name}
+                      {suffix}
+                    </span>
+                  );
+                })}
               </div>
             </div>
           )}
 
-          {/* Probabilidades */}
           {pool.length > 0 && (
             <details className="bg-[var(--color-card)] border border-[var(--color-border)] rounded-lg">
               <summary className="px-3 py-2 text-sm font-medium cursor-pointer">
