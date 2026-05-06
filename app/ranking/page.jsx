@@ -5,11 +5,11 @@ import { calculateRanking, getClassDaysUpToToday } from "@/lib/utils";
 import Spinner from "@/components/Spinner";
 
 export default function RankingPage() {
-  const { students, attendance, grades, subject, loading } = useApp();
+  const { students, attendance, grades, participation, subject, loading } = useApp();
 
   if (loading) return <Spinner />;
 
-  const ranking = calculateRanking(students, attendance, grades, subject);
+  const ranking = calculateRanking(students, attendance, grades, subject, participation);
   const totalDays = getClassDaysUpToToday();
   const dangerStart = Math.max(0, ranking.length - 10);
   const warningStart = Math.max(0, ranking.length - 13);
