@@ -5,7 +5,7 @@ import { useApp } from "@/context/AppContext";
 import { formatDate, normalizeDate, calculateRanking } from "@/lib/utils";
 
 export default function AttendanceTab() {
-  const { students, attendance, grades, subject, addAttendance, removeAttendance, showToast } = useApp();
+  const { students, attendance, grades, participation, subject, addAttendance, removeAttendance, showToast } = useApp();
   const [expandedDate, setExpandedDate] = useState(null);
   const [addQuery, setAddQuery] = useState("");
   const [busyDni, setBusyDni] = useState(null);
@@ -16,7 +16,7 @@ export default function AttendanceTab() {
     .reverse()
     .slice(0, 20);
 
-  const ranking = calculateRanking(students, attendance, grades, subject);
+  const ranking = calculateRanking(students, attendance, grades, subject, participation);
 
   if (dates.length === 0) {
     return <p className="text-sm text-[var(--color-muted)]">No hay registros de asistencia</p>;

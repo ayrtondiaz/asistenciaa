@@ -5,7 +5,7 @@ import { useApp } from "@/context/AppContext";
 import { todayStr, normalizeDate, calculateRanking } from "@/lib/utils";
 
 export default function RuletaTab() {
-  const { students, attendance, grades, subject, setGrade, showToast } = useApp();
+  const { students, attendance, grades, participation, subject, incrementParticipation, showToast } = useApp();
   const [algorithm, setAlgorithm] = useState("uniform");
   const [spinning, setSpinning] = useState(false);
   const [displayName, setDisplayName] = useState(null);
@@ -39,7 +39,7 @@ export default function RuletaTab() {
     }
   }
 
-  const ranking = calculateRanking(students, attendance, grades, subject);
+  const ranking = calculateRanking(students, attendance, grades, subject, participation);
   const rankIndex = new Map(ranking.map((r, i) => [r.dni, i]));
 
   const excluded = new Set(history.map((h) => h.dni));
@@ -104,15 +104,15 @@ export default function RuletaTab() {
   async function adjustParticipation(dni, delta) {
     if (isPreview) return;
     if (adjusted.has(dni)) return;
-    const subGrades = grades[subject] || {};
-    const current = Number(subGrades[dni]?.Participacion || 0);
-    const next = Math.max(0, current + delta);
-    if (next === current) {
+    const subPart = participation[subject] || {};
+    const current = Number(subPart[dni] || 0);
+    if (delta < 0 && current === 0) {
       showToast("No se puede bajar de 0", "error");
       return;
     }
+    const next = Math.max(0, current + delta);
     try {
-      await setGrade(subject, dni, "Participacion", next);
+      await incrementParticipation(subject, dni, delta);
       setAdjusted((prev) => {
         const m = new Map(prev);
         m.set(dni, delta > 0 ? "plus" : "minus");

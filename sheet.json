@@ -1,0 +1,75 @@
+Request URL
+https: //asistenciaa.vercel.app/api/sheets?action=addAttendance&data=%7B%22subject%22%3A%22ppii%22%2C%22date%22%3A%222026-04-29%22%2C%22dni%22%3A%2244864106%22%7D
+Request Method
+GET
+Status Code
+200 OK
+Remote Address
+216.198.79.195: 443
+Referrer Policy
+strict-origin-when-cross-origin
+age
+0
+cache-control
+public, max-age=0, must-revalidate
+content-encoding
+br
+content-type
+application/json
+date
+Wed,
+29 Apr 2026 19: 31: 02 GMT
+server
+Vercel
+strict-transport-security
+max-age=63072000; includeSubDomains; preload
+vary
+rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch
+x-matched-path
+/api/sheets
+x-vercel-cache
+MISS
+x-vercel-id
+gru1: :iad1: :cfbwk-1777491058996-03c059f8c4b7
+:authority
+asistenciaa.vercel.app
+:method
+GET
+:path
+/api/sheets?action=addAttendance&data=%7B%22subject%22%3A%22ppii%22%2C%22date%22%3A%222026-04-29%22%2C%22dni%22%3A%2244864106%22%7D
+:scheme
+https
+accept
+*/*
+accept-encoding
+gzip, deflate, br, zstd
+accept-language
+es-ES,es;q=0.9
+cookie
+perf_dv6Tr4n=1
+priority
+u=1, i
+referer
+https://asistenciaa.vercel.app/asistencia
+sec-ch-ua
+"Brave";v="147", "Not.A/Brand";v="8", "Chromium";v="147"
+sec-ch-ua-mobile
+?0
+sec-ch-ua-platform
+"Windows"
+sec-fetch-dest
+empty
+sec-fetch-mode
+cors
+sec-fetch-site
+same-origin
+sec-gpc
+1
+user-agent
+Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36
+
+action
+addAttendance
+data
+{"subject":"ppii","date":"2026-04-29","dni":"44864106"}
+

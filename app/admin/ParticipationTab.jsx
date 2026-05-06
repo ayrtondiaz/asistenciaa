@@ -3,17 +3,32 @@
 import { useApp } from "@/context/AppContext";
 
 export default function ParticipationTab() {
-  const { students, grades, subject, showToast, setGrade } = useApp();
+  const { students, participation, grades, subject, showToast, incrementParticipation } = useApp();
 
+  const subPart = participation[subject] || {};
   const subGrades = grades[subject] || {};
 
-  async function updateParticipation(dni, delta) {
-    const current = Number(subGrades[dni]?.Participacion || 0);
-    const next = Math.max(0, current + delta);
-    if (next === current) return;
+  // Fallback defensivo: si la hoja `participation` aun no tiene la entrada
+  // (por ejemplo antes de que corra la migracion en el Apps Script), leer
+  // el valor legacy desde grades.Participacion. Asi el panel no muestra 0
+  // mientras el backend termina de migrar.
+  function getCount(dni) {
+    if (subPart[dni] != null) return Number(subPart[dni] || 0);
+    return Number(subGrades[dni]?.["Participacion"] || 0);
+  }
 
-    await setGrade(subject, dni, "Participacion", next);
-    showToast(`Participacion: ${next}`, "success");
+  // Total agregado de la materia
+  const totalSubject = students.reduce((acc, s) => acc + getCount(s.dni), 0);
+
+  async function updateParticipation(dni, delta) {
+    const current = getCount(dni);
+    if (delta < 0 && current === 0) return;
+    try {
+      await incrementParticipation(subject, dni, delta);
+      showToast(`Participacion: ${Math.max(0, current + delta)}`, "success");
+    } catch {
+      showToast("Error al actualizar participacion", "error");
+    }
   }
 
   if (students.length === 0) {
@@ -22,10 +37,15 @@ export default function ParticipationTab() {
 
   return (
     <div>
-      <h3 className="font-medium text-sm mb-3">Participacion</h3>
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="font-medium text-sm">Participacion</h3>
+        <span className="text-xs font-mono text-[var(--color-muted)]">
+          Total materia: <span className="text-[var(--color-text)] font-bold">{totalSubject}</span>
+        </span>
+      </div>
       <div className="space-y-2">
         {students.map((s) => {
-          const val = Number(subGrades[s.dni]?.Participacion || 0);
+          const val = getCount(s.dni);
           return (
             <div
               key={s.dni}

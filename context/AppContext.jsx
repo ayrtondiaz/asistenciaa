@@ -37,6 +37,7 @@ export function AppProvider({ children }) {
   const [students, setStudents] = useState([]);
   const [attendance, setAttendance] = useState({});
   const [grades, setGrades] = useState({});
+  const [participation, setParticipation] = useState({});
   const [codes, setCodes] = useState({});
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
@@ -65,30 +66,35 @@ export function AppProvider({ children }) {
     async function load() {
       setLoading(true);
       try {
-        const [remoteStudents, remoteAtt, remoteGrades, remoteCodes] = await Promise.all([
+        const [remoteStudents, remoteAtt, remoteGrades, remoteCodes, remotePart] = await Promise.all([
           sheetsCall("getStudents"),
           sheetsCall("getAttendance"),
           sheetsCall("getGrades"),
           sheetsCall("getCodes"),
+          sheetsCall("getParticipation").catch(() => ({})),
         ]);
         const s = Array.isArray(remoteStudents) ? remoteStudents : [];
         const a = normalizeAttendance(remoteAtt);
         const g = remoteGrades && typeof remoteGrades === "object" ? remoteGrades : {};
         const c = remoteCodes && typeof remoteCodes === "object" ? remoteCodes : {};
+        const p = remotePart && typeof remotePart === "object" ? remotePart : {};
 
         setStudents(s);
         setAttendance(a);
         setGrades(g);
         setCodes(c);
+        setParticipation(p);
         saveLocal("students", s);
         saveLocal("attendance", a);
         saveLocal("grades", g);
         saveLocal("codes", c);
+        saveLocal("participation", p);
       } catch {
         setStudents(loadLocal("students") || []);
         setAttendance(normalizeAttendance(loadLocal("attendance") || {}));
         setGrades(loadLocal("grades") || {});
         setCodes(loadLocal("codes") || {});
+        setParticipation(loadLocal("participation") || {});
       }
       setLoading(false);
     }
@@ -155,8 +161,50 @@ export function AppProvider({ children }) {
       saveLocal("grades", next);
       return next;
     });
-    await sheetsCall("setGrade", { subject: subj, dni, field, value });
-  }, []);
+    const student = students.find((s) => s.dni === dni);
+    await sheetsCall("setGrade", { subject: subj, dni, field, value, name: student?.name || "" });
+  }, [students]);
+
+  /** Incrementa contador de participacion (delta puede ser negativo) */
+  const incrementParticipation = useCallback(async (subj, dni, delta) => {
+    const d = Number(delta);
+    if (!d) return;
+    let optimistic = 0;
+    setParticipation((prev) => {
+      const next = { ...prev };
+      if (!next[subj]) next[subj] = {};
+      const current = Number(next[subj][dni] || 0);
+      optimistic = Math.max(0, current + d);
+      next[subj] = { ...next[subj], [dni]: optimistic };
+      saveLocal("participation", next);
+      return next;
+    });
+    try {
+      const student = students.find((s) => s.dni === dni);
+      const res = await sheetsCall("incrementParticipation", { subject: subj, dni, delta: d, name: student?.name || "" });
+      // Reconciliar con el valor autoritativo del servidor
+      if (res && typeof res.count === "number") {
+        setParticipation((prev) => {
+          const next = { ...prev };
+          if (!next[subj]) next[subj] = {};
+          next[subj] = { ...next[subj], [dni]: res.count };
+          saveLocal("participation", next);
+          return next;
+        });
+      }
+    } catch (err) {
+      // Revertir cambio optimista ante error
+      setParticipation((prev) => {
+        const next = { ...prev };
+        if (!next[subj]) next[subj] = {};
+        const rolled = Math.max(0, Number(next[subj][dni] || 0) - d);
+        next[subj] = { ...next[subj], [dni]: rolled };
+        saveLocal("participation", next);
+        return next;
+      });
+      throw err;
+    }
+  }, [students]);
 
   /** Activa/desactiva codigos (upsert por materia) */
   const persistCodes = useCallback(async (newCodes) => {
@@ -193,6 +241,7 @@ export function AppProvider({ children }) {
         students,
         attendance,
         grades,
+        participation,
         codes,
         loading,
         toast,
@@ -205,6 +254,7 @@ export function AppProvider({ children }) {
         addAttendance,
         removeAttendance,
         setGrade,
+        incrementParticipation,
         // bulk (compatibility)
         persistStudents,
         persistAttendance,
