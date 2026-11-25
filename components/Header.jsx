@@ -14,11 +14,11 @@ export const NAV_ITEMS = [
   { href: "/registro", label: "Registro" },
   { href: "/asistencia", label: "Asistencia" },
   { href: "/ranking", label: "Ranking" },
-  { href: "/admin", label: "Admin" },
+  { href: "/regularidades", label: "Regularidades" },
 ];
 
-// Items que no pueden ocultarse (siempre accesibles)
-const ALWAYS_VISIBLE = new Set(["/admin"]);
+// Items que no pueden ocultarse (siempre accesibles). /admin sigue accesible por URL.
+const ALWAYS_VISIBLE = new Set();
 
 export default function Header() {
   const pathname = usePathname();
