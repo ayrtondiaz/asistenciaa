@@ -42,6 +42,15 @@ function parseCsv(text) {
   return rows;
 }
 
+// Final grade decides the status: >= 7 promotes, 6 is regular, anything else is libre.
+function statusFromGrade(grade) {
+  const n = parseFloat(grade.replace(",", "."));
+  if (Number.isNaN(n)) return "Libre";
+  if (n >= 7) return "Promoción";
+  if (n >= 6) return "Regular";
+  return "Libre";
+}
+
 const normalizeHeader = (h) =>
   h.normalize("NFD").replace(/[̀-ͯ]/g, "").trim().toLowerCase();
 
@@ -72,10 +81,9 @@ export async function GET(request) {
     const idx = (name) => cols.indexOf(name);
     const iDni = idx("dni");
     const iName = idx("apellido y nombre");
-    const iStatus = idx("situacion curricular");
     const iGrade = idx("nota final");
 
-    if (iDni < 0 || iStatus < 0) {
+    if (iDni < 0 || iGrade < 0) {
       return Response.json(
         { ok: false, error: "La planilla no tiene el formato esperado" },
         { status: 502 }
@@ -87,13 +95,15 @@ export async function GET(request) {
       return Response.json({ ok: true, data: null });
     }
 
+    const grade = iGrade >= 0 ? (row[iGrade] || "").trim() : "";
+
     // Only this student's data leaves the server.
     return Response.json({
       ok: true,
       data: {
         name: iName >= 0 ? row[iName] : "",
-        status: row[iStatus] || "",
-        grade: iGrade >= 0 ? row[iGrade] : "",
+        status: statusFromGrade(grade),
+        grade,
       },
     });
   } catch (err) {
